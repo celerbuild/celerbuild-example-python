@@ -4,7 +4,7 @@ from pydantic import ConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "CelerBuild Example Python"
-    version: str = "1.0.0"
+    version: str = "1.0.1"
     port: int = 8084
     env: Literal["development", "production"] = "development"
     debug: bool = True
