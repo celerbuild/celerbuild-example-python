@@ -1,0 +1,69 @@
+name: celerbuild-example-python-dev
+env: dev
+repoPath: git@github.com:celerbuild/celerbuild-example-python.git
+targetDeployPath: /home/ubuntu/apps/python
+targetDeployWarehousePath: /home/ubuntu/repos/python
+targetWarehouseVersionKeep: 2
+serverClusterID: 45
+deployMode: branch
+deployUser: ubuntu
+buildCmds: tar --no-xattrs --no-mac-metadata -zcvf ${LOCAL_PACKAGE_FILE} .env.* *
+preDeploymentCmds: ''
+postDeploymentCmds: |-
+  #!/bin/bash
+    
+  # Define deployment environment and variables
+  DEPLOY_ENV="dev"  # Change to "prod" for production
+  DEPLOY_USER="${DEPLOY_USER}"
+  SOURCE_DIR="${TARGET_DEPLOYMENT_PATH}/${TARGET_DEPLOYMENT_PROJECT_NAME}"
+  DEST_DIR="/home/${DEPLOY_USER}/celerbuild-example-python"
+  GUNICORN_CONFIG="gunicorn/gunicorn.${DEPLOY_ENV}.py"
+  SERVICE_NAME="celerbuild-example-python"
+
+  # Check if the destination directory exists
+  if [ ! -d "$DEST_DIR" ]; then
+      sudo mkdir -p "$DEST_DIR"
+      echo "Directory $DEST_DIR created."
+  fi
+
+  # Stop existing application if running
+  if systemctl is-active --quiet ${SERVICE_NAME}; then
+      sudo systemctl stop ${SERVICE_NAME}
+      echo "Stopped existing application"
+  else
+      echo "No existing application running"
+  fi
+
+  # Clean up existing directory and copy new contents
+  # Remove all files including hidden ones, but preserve the directory
+  sudo find "$DEST_DIR" -mindepth 1 -delete
+  sudo cp -r "$SOURCE_DIR"/. "$DEST_DIR"
+
+  # Fix permissions
+  sudo chown -R ${DEPLOY_USER}:${DEPLOY_USER} "$DEST_DIR"
+
+  # Copy environment file based on deployment environment
+  cd "$DEST_DIR"
+  cp .env.${DEPLOY_ENV} .env
+
+  # Install Python dependencies
+  pip3 install -r requirements.txt
+
+  # Check if gunicorn config file exists
+  if [ ! -f "${GUNICORN_CONFIG}" ]; then
+      echo "Error: Gunicorn config file not found: ${GUNICORN_CONFIG}"
+      exit 1
+  fi
+
+  # Reload systemd configuration
+  sudo systemctl daemon-reload
+
+  # Start application
+  sudo systemctl start ${SERVICE_NAME}
+  echo "Application started with ${DEPLOY_ENV} environment"
+
+  # Check service status
+  echo "Checking service status..."
+  sudo systemctl status ${SERVICE_NAME}
+numberOfLatestTags: 0
+specifyBranches: dev
